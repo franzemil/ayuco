@@ -1,0 +1,35 @@
+{
+  "telegram": {
+    "token": "YOUR_BOT_TOKEN_HERE"
+  },
+  "llm": {
+    "base_url": "https://api.openai.com/v1",
+    "api_key": "sk-...",
+    "model": "gpt-4o-mini",
+    "system_prompt": "You are a helpful assistant called Ayuco."
+  },
+  "storage": {
+    "db_path": "ayuco.db"
+  },
+  "memory": {
+    "mode": "sliding",
+    "max_messages": 40,
+    "summarize_threshold": 100
+  },
+  "sandbox": {
+    "enabled": true,
+    "engine": "bwrap",
+    "bwrap_path": "/usr/bin/bwrap",
+    "timeout": 30,
+    "allowed_commands": ["ls", "cat", "grep", "find", "python3", "curl", "echo"]
+  },
+  "mcp": {
+    "servers": [
+      {
+        "name": "filesystem",
+        "transport": "stdio",
+        "command": ["npx", "-y", "@modelcontextprotocol/server-filesystem", "/tmp"]
+      }
+    ]
+  }
+}

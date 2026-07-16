@@ -1,0 +1,85 @@
+from __future__ import annotations
+
+import asyncio
+import logging
+import shutil
+
+from ayuco.domain.entities.message import ToolResult
+
+logger = logging.getLogger(__name__)
+
+
+class BwrapExecutor:
+    def __init__(
+        self,
+        bwrap_path: str = "/usr/bin/bwrap",
+        timeout: float = 30.0,
+        allowed_commands: list[str] | None = None,
+    ) -> None:
+        self._bwrap = bwrap_path
+        self._timeout = timeout
+        self._allowed = set(allowed_commands) if allowed_commands else None
+
+    async def execute(self, command: str, arguments: dict) -> ToolResult:
+        cmd_str = arguments.get("command", command)
+        cmd_parts = cmd_str.split()
+
+        if self._allowed and cmd_parts and cmd_parts[0] not in self._allowed:
+            return ToolResult(
+                call_id="",
+                content=f"Command not allowed: {cmd_parts[0]}",
+                is_error=True,
+            )
+
+        if shutil.which(self._bwrap):
+            return await self._run_bwrap(cmd_parts)
+        return await self._run_subprocess(cmd_parts)
+
+    async def _run_bwrap(self, cmd_parts: list[str]) -> ToolResult:
+        bwrap_cmd = [
+            self._bwrap,
+            "--ro-bind",
+            "/",
+            "/",
+            "--dev",
+            "/dev",
+            "--proc",
+            "/proc",
+            "--tmpfs",
+            "/tmp",
+            "--unshare-net",
+            "--die-with-parent",
+            "--",
+            *cmd_parts,
+        ]
+        return await self._run_cmd(bwrap_cmd)
+
+    async def _run_subprocess(self, cmd_parts: list[str]) -> ToolResult:
+        logger.warning("bwrap not found, falling back to plain subprocess")
+        return await self._run_cmd(cmd_parts)
+
+    async def _run_cmd(self, cmd: list[str]) -> ToolResult:
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=self._timeout)
+            output = stdout.decode(errors="replace")
+            err = stderr.decode(errors="replace")
+            if proc.returncode != 0:
+                return ToolResult(
+                    call_id="",
+                    content=f"Exit {proc.returncode}\n{err or output}",
+                    is_error=True,
+                )
+            return ToolResult(call_id="", content=output or err or "(no output)")
+        except TimeoutError:
+            return ToolResult(
+                call_id="",
+                content=f"Command timed out after {self._timeout}s",
+                is_error=True,
+            )
+        except Exception as e:
+            return ToolResult(call_id="", content=str(e), is_error=True)
