@@ -1,14 +1,14 @@
 from __future__ import annotations
 
-import logging
 from typing import Any
 
+import structlog
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
 from ayuco.domain.entities.message import ToolResult
 
-logger = logging.getLogger(__name__)
+log = structlog.get_logger()
 
 
 class MCPToolProvider:
@@ -23,9 +23,10 @@ class MCPToolProvider:
 
     async def connect(self) -> None:
         if self._transport != "stdio":
-            logger.warning(
-                "MCP server '%s': only stdio transport supported, skipping",
-                self._name,
+            log.warning(
+                "mcp_unsupported_transport",
+                server=self._name,
+                transport=self._transport,
             )
             return
         try:
@@ -38,9 +39,9 @@ class MCPToolProvider:
             self._session_cm = ClientSession(read, write)
             self._session = await self._session_cm.__aenter__()
             await self._session.initialize()
-            logger.info("MCP server '%s' connected", self._name)
+            log.info("mcp_connected", server=self._name)
         except Exception:
-            logger.exception("Failed to connect MCP server '%s'", self._name)
+            log.exception("mcp_connect_failed", server=self._name)
             self._session = None
 
     async def close(self) -> None:
@@ -66,13 +67,12 @@ class MCPToolProvider:
             ]
             return self._tools
         except Exception:
-            logger.exception("Failed to list tools from MCP server '%s'", self._name)
+            log.exception("mcp_list_tools_failed", server=self._name)
             return []
 
     async def execute(self, name: str, arguments: dict) -> ToolResult:
         if self._session is None:
             return ToolResult(call_id="", content="MCP server not connected", is_error=True)
-        # Strip the mcp_{name}_ prefix to get the real tool name
         prefix = f"mcp_{self._name}_"
         real_name = name.removeprefix(prefix) if name.startswith(prefix) else name
         try:

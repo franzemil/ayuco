@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 import json
-import logging
 from typing import Any
 
 import httpx
+import structlog
 
 from ayuco.domain.entities.message import Message, ToolCall
 from ayuco.domain.ports.llm import LLMResponse
 
-logger = logging.getLogger(__name__)
+log = structlog.get_logger()
 
 
 def _message_to_dict(msg: Message) -> dict[str, Any]:
@@ -76,6 +76,13 @@ class OpenAIProvider:
                 arguments=json.loads(tc["function"]["arguments"]),
             )
             for tc in msg.get("tool_calls", [])
+        )
+
+        log.debug(
+            "llm_response",
+            model=self._model,
+            tool_calls=len(tool_calls),
+            usage=usage,
         )
 
         return LLMResponse(

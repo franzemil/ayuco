@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 from collections.abc import Awaitable, Callable
 
+import structlog
 from telegram import Update
 from telegram.ext import (
     ApplicationBuilder,
@@ -13,7 +13,7 @@ from telegram.ext import (
     filters,
 )
 
-logger = logging.getLogger(__name__)
+log = structlog.get_logger()
 
 MessageHandlerFunc = Callable[[str, str], Awaitable[str]]
 
@@ -36,16 +36,16 @@ class TelegramChannel:
         self._app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self._on_text))
 
     async def run(self) -> None:
-        logger.info("Telegram bot starting...")
+        log.info("telegram_starting")
         await self._app.initialize()
         await self._app.start()
         await self._app.updater.start_polling(drop_pending_updates=True)
-        logger.info("Telegram bot running")
+        log.info("telegram_running")
         stop_event = asyncio.Event()
         try:
             await stop_event.wait()
         except (KeyboardInterrupt, SystemExit):
-            logger.info("Shutting down...")
+            log.info("telegram_shutting_down")
             await self._app.stop()
 
     async def send(self, chat_id: str, content: str) -> None:
@@ -61,7 +61,7 @@ class TelegramChannel:
             response = await self._handler(chat_id, text)
             await self.send(chat_id, response)
         except Exception:
-            logger.exception("Error handling message from chat %s", chat_id)
+            log.exception("telegram_message_error", chat_id=chat_id)
             await self.send(chat_id, "An error occurred while processing your message.")
 
     async def _cmd_start(self, update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:

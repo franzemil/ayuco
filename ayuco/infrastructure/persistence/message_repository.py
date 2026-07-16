@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 import json
-import logging
 import uuid
 from datetime import datetime
 
 import aiosqlite
+import structlog
 
 from ayuco.domain.entities.message import Message, Role, ToolCall, ToolResult
 
-logger = logging.getLogger(__name__)
+log = structlog.get_logger()
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS messages (
@@ -41,7 +41,7 @@ class SQLiteMessageRepository:
         await self._db.executescript(SCHEMA)
         await self._db.execute("PRAGMA journal_mode=WAL")
         await self._db.commit()
-        logger.info("SQLite connected: %s", self._db_path)
+        log.info("sqlite_connected", path=self._db_path)
 
     async def close(self) -> None:
         if self._db:
@@ -62,7 +62,8 @@ class SQLiteMessageRepository:
                 }
             )
         await self._db.execute(
-            "INSERT INTO messages (id, chat_id, role, content, tool_calls, tool_result, timestamp) "
+            "INSERT INTO messages "
+            "(id, chat_id, role, content, tool_calls, tool_result, timestamp) "
             "VALUES (?, ?, ?, ?, ?, ?, ?)",
             (
                 str(message.id),

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import logging
+import structlog
 
 from ayuco.domain.entities.message import Message, Role
 from ayuco.domain.ports.channel import Channel
@@ -10,7 +10,7 @@ from ayuco.domain.ports.repository import MessageRepository
 from ayuco.domain.ports.tool_provider import ToolProvider
 from ayuco.domain.use_cases.execute_tool import ExecuteTool
 
-logger = logging.getLogger(__name__)
+log = structlog.get_logger()
 
 MAX_TOOL_ROUNDS = 5
 
@@ -86,7 +86,7 @@ class HandleMessage:
 
         tool_messages = list(context)
         for tc in llm_response.tool_calls:
-            logger.info("Tool call: %s(%s)", tc.name, tc.arguments)
+            log.info("tool_call", name=tc.name, arguments=tc.arguments)
             result = await self._execute_tool.execute(tc.name, tc.arguments)
             tool_messages.append(
                 Message(

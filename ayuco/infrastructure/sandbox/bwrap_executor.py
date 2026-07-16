@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 import shutil
+
+import structlog
 
 from ayuco.domain.entities.message import ToolResult
 
-logger = logging.getLogger(__name__)
+log = structlog.get_logger()
 
 
 class BwrapExecutor:
@@ -55,7 +56,7 @@ class BwrapExecutor:
         return await self._run_cmd(bwrap_cmd)
 
     async def _run_subprocess(self, cmd_parts: list[str]) -> ToolResult:
-        logger.warning("bwrap not found, falling back to plain subprocess")
+        log.warning("bwrap_not_found_fallback")
         return await self._run_cmd(cmd_parts)
 
     async def _run_cmd(self, cmd: list[str]) -> ToolResult:

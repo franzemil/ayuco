@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-import logging
+import structlog
 
 from ayuco.adapters.cli import CLIBot
 from ayuco.adapters.telegram.bot import TelegramChannel
+from ayuco.config import Settings
 from ayuco.domain.use_cases.handle_message import HandleMessage
 from ayuco.infrastructure.llm.openai_provider import OpenAIProvider
 from ayuco.infrastructure.mcp.mcp_tool_provider import MCPToolProvider
@@ -13,45 +14,44 @@ from ayuco.infrastructure.persistence.message_repository import SQLiteMessageRep
 from ayuco.infrastructure.sandbox.bwrap_executor import BwrapExecutor
 from ayuco.infrastructure.sandbox.tool_provider import SandboxToolProvider
 
-logger = logging.getLogger(__name__)
+log = structlog.get_logger()
 
 
-async def build(config: dict, cli_mode: bool = False):  # type: ignore[no-untyped-def]
+async def build(settings: Settings, cli_mode: bool = False):  # type: ignore[no-untyped-def]
     # --- persistence ---
-    repo = SQLiteMessageRepository(config["storage"]["db_path"])
+    repo = SQLiteMessageRepository(settings.storage.db_path)
     await repo.connect()
 
     # --- llm ---
     llm = OpenAIProvider(
-        base_url=config["llm"]["base_url"],
-        api_key=config["llm"]["api_key"],
-        model=config["llm"]["model"],
+        base_url=settings.llm.base_url,
+        api_key=settings.llm.api_key,
+        model=settings.llm.model,
     )
 
     # --- memory ---
-    mem_cfg = config["memory"]
-    if mem_cfg["mode"] == "summarized":
+    if settings.memory.mode == "summarized":
         memory = SummarizedMemory(
             repo,
             llm,
-            max_messages=mem_cfg["max_messages"],
-            summarize_threshold=mem_cfg["summarize_threshold"],
+            max_messages=settings.memory.max_messages,
+            summarize_threshold=settings.memory.summarize_threshold,
         )
     else:
-        memory = SlidingWindowMemory(repo, max_messages=mem_cfg["max_messages"])
+        memory = SlidingWindowMemory(repo, max_messages=settings.memory.max_messages)
 
     # --- tools ---
     providers = []
-    if config["sandbox"]["enabled"]:
+    if settings.sandbox.enabled:
         executor = BwrapExecutor(
-            bwrap_path=config["sandbox"]["bwrap_path"],
-            timeout=config["sandbox"]["timeout"],
-            allowed_commands=config["sandbox"]["allowed_commands"],
+            bwrap_path=settings.sandbox.bwrap_path,
+            timeout=settings.sandbox.timeout,
+            allowed_commands=settings.sandbox.allowed_commands,
         )
         providers.append(SandboxToolProvider(executor))
 
-    for server_cfg in config["mcp"]["servers"]:
-        mcp = MCPToolProvider(server_cfg)
+    for server_cfg in settings.mcp.servers:
+        mcp = MCPToolProvider(server_cfg.model_dump())
         await mcp.connect()
         providers.append(mcp)
 
@@ -61,16 +61,21 @@ async def build(config: dict, cli_mode: bool = False):  # type: ignore[no-untype
         llm=llm,
         memory=memory,
         providers=providers,
-        system_prompt=config["llm"].get("system_prompt", ""),
+        system_prompt=settings.llm.system_prompt,
     )
 
     # --- adapter ---
     if cli_mode:
         channel = CLIBot()
     else:
-        channel = TelegramChannel(config["telegram"]["token"])
+        channel = TelegramChannel(settings.telegram.token)
         channel.on_clear(repo.clear)
 
     await channel.start(handle_message)
-
+    log.info(
+        "app_built",
+        sandbox=settings.sandbox.enabled,
+        mcp_servers=len(settings.mcp.servers),
+        memory_mode=settings.memory.mode,
+    )
     return channel

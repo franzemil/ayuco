@@ -1,13 +1,15 @@
 from __future__ import annotations
 
+from typing import ClassVar
+
 from ayuco.domain.entities.message import ToolResult
 from ayuco.infrastructure.sandbox.bwrap_executor import BwrapExecutor
 
 
 class SandboxToolProvider:
-    TOOL_NAME = "run_command"
+    TOOL_NAME: ClassVar[str] = "run_command"
 
-    TOOL_SCHEMA = {
+    TOOL_SCHEMA: ClassVar[dict] = {
         "name": "run_command",
         "description": "Execute a shell command in a sandboxed environment",
         "parameters": {

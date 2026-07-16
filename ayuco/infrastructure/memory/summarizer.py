@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import logging
+import structlog
 
 from ayuco.domain.entities.message import Message, Role
 from ayuco.domain.ports.llm import LLMProvider
 from ayuco.domain.ports.repository import MessageRepository
 
-logger = logging.getLogger(__name__)
+log = structlog.get_logger()
 
 SUMMARY_SYSTEM = (
     "Summarize the following conversation into a concise paragraph. "
@@ -64,6 +64,6 @@ class SummarizedMemory:
             if resp.content:
                 combined = f"{existing}\n\n{resp.content}" if existing else resp.content
                 await self._repo.set_summary(chat_id, combined)
-                logger.info("Summarized conversation for chat %s", chat_id)
+                log.info("conversation_summarized", chat_id=chat_id)
         except Exception:
-            logger.exception("Failed to summarize chat %s", chat_id)
+            log.exception("summarize_failed", chat_id=chat_id)
