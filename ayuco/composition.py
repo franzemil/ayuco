@@ -42,14 +42,13 @@ async def build(settings: Settings, cli_mode: bool = False):  # type: ignore[no-
 
     # --- tools ---
     providers = []
-    if settings.sandbox.enabled:
-        executor = BwrapExecutor(
-            bwrap_path=settings.sandbox.bwrap_path,
-            timeout=settings.sandbox.timeout,
-            allowed_commands=settings.sandbox.allowed_commands,
-            shared_paths=settings.sandbox.shared_paths,
-        )
-        providers.append(SandboxToolProvider(executor))
+    executor = BwrapExecutor(
+        bwrap_path=settings.sandbox.bwrap_path if settings.sandbox.enabled else "",
+        timeout=settings.sandbox.timeout,
+        allowed_commands=settings.sandbox.allowed_commands,
+        shared_paths=settings.sandbox.shared_paths,
+    )
+    providers.append(SandboxToolProvider(executor, sandboxed=settings.sandbox.enabled))
 
     for server_cfg in settings.mcp.servers:
         mcp = MCPToolProvider(server_cfg.model_dump())
