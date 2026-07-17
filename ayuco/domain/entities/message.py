@@ -32,5 +32,6 @@ class Message:
     content: str = ""
     tool_calls: tuple[ToolCall, ...] = ()
     tool_result: ToolResult | None = None
+    reasoning_content: str | None = None
     id: UUID = field(default_factory=uuid4)
     timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))

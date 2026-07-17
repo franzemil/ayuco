@@ -17,6 +17,8 @@ def _message_to_dict(msg: Message) -> dict[str, Any]:
         "role": msg.role.value,
         "content": None if msg.tool_calls else msg.content,
     }
+    if msg.reasoning_content:
+        d["reasoning_content"] = msg.reasoning_content
     if msg.tool_calls:
         d["tool_calls"] = [
             {
@@ -99,6 +101,7 @@ class OpenAIProvider:
             content=msg.get("content") or "",
             tool_calls=tool_calls,
             usage=usage,
+            reasoning_content=msg.get("reasoning_content"),
         )
 
     async def close(self) -> None:

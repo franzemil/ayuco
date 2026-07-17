@@ -11,6 +11,7 @@ class LLMResponse:
     content: str = ""
     tool_calls: tuple[ToolCall, ...] = ()
     usage: dict = field(default_factory=dict)
+    reasoning_content: str | None = None
 
 
 @runtime_checkable

@@ -99,6 +99,7 @@ class HandleMessage:
                     role=Role.ASSISTANT,
                     content=None,
                     tool_calls=(tc,),
+                    reasoning_content=llm_response.reasoning_content,
                 )
             )
             tool_messages.append(
