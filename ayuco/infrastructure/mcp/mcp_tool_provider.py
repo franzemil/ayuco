@@ -10,6 +10,20 @@ from ayuco.domain.entities.message import ToolResult
 
 log = structlog.get_logger()
 
+_UNSUPPORTED_SCHEMA_KEYS = {"anyOf", "oneOf", "$ref", "additionalProperties"}
+
+
+def _sanitize_schema(schema: dict) -> dict:
+    cleaned = {k: v for k, v in schema.items() if k not in _UNSUPPORTED_SCHEMA_KEYS}
+    if "properties" in cleaned and isinstance(cleaned["properties"], dict):
+        cleaned["properties"] = {
+            k: _sanitize_schema(v) if isinstance(v, dict) else v
+            for k, v in cleaned["properties"].items()
+        }
+    if "items" in cleaned and isinstance(cleaned["items"], dict):
+        cleaned["items"] = _sanitize_schema(cleaned["items"])
+    return cleaned
+
 
 class MCPToolProvider:
     def __init__(self, server_config: dict[str, Any]) -> None:
@@ -61,7 +75,7 @@ class MCPToolProvider:
                 {
                     "name": f"mcp_{self._name}_{tool.name}",
                     "description": tool.description or "",
-                    "parameters": tool.inputSchema,
+                    "parameters": _sanitize_schema(tool.inputSchema),
                 }
                 for tool in result.tools
             ]

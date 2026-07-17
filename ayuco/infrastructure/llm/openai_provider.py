@@ -13,7 +13,10 @@ log = structlog.get_logger()
 
 
 def _message_to_dict(msg: Message) -> dict[str, Any]:
-    d: dict[str, Any] = {"role": msg.role.value, "content": msg.content}
+    d: dict[str, Any] = {
+        "role": msg.role.value,
+        "content": None if msg.tool_calls else msg.content,
+    }
     if msg.tool_calls:
         d["tool_calls"] = [
             {
@@ -62,6 +65,13 @@ class OpenAIProvider:
             payload["tool_choice"] = "auto"
 
         resp = await self._client.post("/chat/completions", json=payload)
+        if resp.status_code >= 400:
+            log.error(
+                "llm_request_failed",
+                status=resp.status_code,
+                body=resp.text,
+                model=self._model,
+            )
         resp.raise_for_status()
         data = resp.json()
 

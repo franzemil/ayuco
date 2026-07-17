@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import structlog
 
-from ayuco.domain.entities.message import Message, Role
+from ayuco.domain.entities.message import Message, Role, ToolResult
 from ayuco.domain.ports.channel import Channel
 from ayuco.domain.ports.llm import LLMProvider
 from ayuco.domain.ports.memory import MemoryManager
@@ -88,6 +88,11 @@ class HandleMessage:
         for tc in llm_response.tool_calls:
             log.info("tool_call", name=tc.name, arguments=tc.arguments)
             result = await self._execute_tool.execute(tc.name, tc.arguments)
+            result = ToolResult(
+                call_id=tc.id,
+                content=result.content,
+                is_error=result.is_error,
+            )
             tool_messages.append(
                 Message(
                     chat_id=context[0].chat_id if context else "",
