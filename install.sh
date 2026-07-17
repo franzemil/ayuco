@@ -34,7 +34,7 @@ install_bwrap() {
   elif command_exists dnf; then
     sudo dnf install -y bubblewrap
   elif command_exists pacman; then
-    sudo pacman -S --noconfirm bubblewrap
+    sudo pacman -S --noconfirm --disable-sandbox bubblewrap
   else
     err "No supported package manager found. Install bubblewrap manually."
   fi
