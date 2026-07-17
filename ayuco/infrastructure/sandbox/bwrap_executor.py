@@ -16,10 +16,12 @@ class BwrapExecutor:
         bwrap_path: str = "/usr/bin/bwrap",
         timeout: float = 30.0,
         allowed_commands: list[str] | None = None,
+        shared_paths: list[str] | None = None,
     ) -> None:
         self._bwrap = bwrap_path
         self._timeout = timeout
         self._allowed = set(allowed_commands) if allowed_commands else None
+        self._shared_paths = shared_paths or []
 
     async def execute(self, command: str, arguments: dict) -> ToolResult:
         cmd_str = arguments.get("command", command)
@@ -37,6 +39,12 @@ class BwrapExecutor:
         return await self._run_subprocess(cmd_parts)
 
     async def _run_bwrap(self, cmd_parts: list[str]) -> ToolResult:
+        shared = set(self._shared_paths)
+        tmp_mount = ["--bind", "/tmp", "/tmp"] if "/tmp" in shared else ["--tmpfs", "/tmp"]
+        extra_binds: list[str] = []
+        for p in shared:
+            if p != "/tmp":
+                extra_binds.extend(["--bind", p, p])
         bwrap_cmd = [
             self._bwrap,
             "--ro-bind",
@@ -46,8 +54,8 @@ class BwrapExecutor:
             "/dev",
             "--proc",
             "/proc",
-            "--tmpfs",
-            "/tmp",
+            *tmp_mount,
+            *extra_binds,
             "--unshare-net",
             "--die-with-parent",
             "--",

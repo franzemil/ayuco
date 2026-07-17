@@ -47,6 +47,7 @@ async def build(settings: Settings, cli_mode: bool = False):  # type: ignore[no-
             bwrap_path=settings.sandbox.bwrap_path,
             timeout=settings.sandbox.timeout,
             allowed_commands=settings.sandbox.allowed_commands,
+            shared_paths=settings.sandbox.shared_paths,
         )
         providers.append(SandboxToolProvider(executor))
 
