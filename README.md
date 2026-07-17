@@ -367,6 +367,33 @@ ayuco/               # Source package
 └── logging.py       # structlog setup
 ```
 
+## How Ayuco Compares
+
+| | Ayuco | Nanobot | PicoClaw | ZeroClaw | OpenClaw |
+|---|---|---|---|---|---|
+| Language | Python | Python | Go | Rust | TypeScript |
+| Lines of code | ~2,000 | ~4,000 | ~20,000 | ~26,000 | 430,000+ |
+| RAM usage | ~30 MB | ~191 MB | <10 MB | <5 MB | >1 GB |
+| Cold start | ~1s | ~200 ms | <1 s | <10 ms | 8-12 s |
+| Min hardware | Any VPS | Raspberry Pi | $10 RISC-V SBC | $5 VPS | Mac Mini / 4 GB VPS |
+| Channels | Telegram, CLI | 8+ | 10+ | 22+ | 12+ |
+| MCP support | Yes | Yes | Yes | Yes | Yes (via skills) |
+| Sandbox | bubblewrap (opt-in) | Docker | Regex guards | Landlock / bwrap / Docker | Docker |
+| Command allowlist | Yes | No | No | Yes | Yes |
+| Memory backend | SQLite | File (MEMORY.md) | File (MEMORY.md) | SQLite + vectors | SQLite + vectors |
+| Embeddings / RAG | No | No | No | Yes | Yes |
+| Hardware I/O | No | No | I2C, SPI | GPIO, I2C, SPI, USB | No |
+| Web dashboard | No | No | Yes | Yes | Yes |
+| Browser automation | No | No | No | Yes | Yes (Chromium) |
+| Multi-agent | No | Subagents | Subagents | Subagents + orchestration | Workspaces |
+| License | MIT | MIT | MIT | MIT / Apache | MIT |
+
+## Running on
+
+![Orange Pi running Ayuco](docs/img/orangepi.jpeg)
+
+**Current setup:** Orange Pi running Ayuco with [DeepSeek v4](https://platform.deepseek.com/) (cloud) as primary model and [Qwen 3.5:27B](https://ollama.com/) via local Ollama for offline/private tasks.
+
 ## License
 
 MIT
