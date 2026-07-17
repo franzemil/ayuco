@@ -6,9 +6,18 @@ Built with [Clean Architecture](https://blog.cleancoder.com/uncle-bob/2012/08/13
 
 ## Quick Start
 
+**Linux (one-liner):**
+
 ```bash
-# Clone and install
-git clone <repo> && cd ayuco
+curl -sSf https://raw.githubusercontent.com/franzemil/ayuco/main/install.sh | bash
+```
+
+This installs [uv](https://docs.astral.sh/uv/), [bubblewrap](https://github.com/containers/bubblewrap) (sandbox), clones the repo to `~/.ayuco/`, and sets up dependencies.
+
+**Manual install:**
+
+```bash
+git clone https://github.com/franzemil/ayuco.git && cd ayuco
 uv sync
 
 # Configure
