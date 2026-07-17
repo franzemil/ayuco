@@ -97,7 +97,7 @@ class HandleMessage:
                 Message(
                     chat_id=context[0].chat_id if context else "",
                     role=Role.ASSISTANT,
-                    content="",
+                    content=None,
                     tool_calls=(tc,),
                 )
             )
@@ -109,5 +109,12 @@ class HandleMessage:
                     tool_result=result,
                 )
             )
+            if result.is_error:
+                log.warning(
+                    "tool_execution_failed",
+                    name=tc.name,
+                    error=result.content,
+                )
+                return result.content
 
         return await self._loop(tool_messages, tools, rounds + 1)
