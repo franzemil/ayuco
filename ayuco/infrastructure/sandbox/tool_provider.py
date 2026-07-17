@@ -24,11 +24,18 @@ class SandboxToolProvider:
         },
     }
 
-    def __init__(self, executor: BwrapExecutor) -> None:
+    def __init__(self, executor: BwrapExecutor, *, sandboxed: bool = True) -> None:
         self._executor = executor
+        self._sandboxed = sandboxed
 
     async def list_tools(self) -> list[dict]:
-        return [self.TOOL_SCHEMA]
+        schema = dict(self.TOOL_SCHEMA)
+        if not self._sandboxed:
+            schema = {
+                **schema,
+                "description": "Execute a shell command",
+            }
+        return [schema]
 
     async def execute(self, name: str, arguments: dict) -> ToolResult:
         return await self._executor.execute(name, arguments)
