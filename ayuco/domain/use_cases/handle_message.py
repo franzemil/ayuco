@@ -15,8 +15,6 @@ from ayuco.domain.use_cases.execute_tool import ExecuteTool
 
 log = structlog.get_logger()
 
-MAX_TOOL_ROUNDS = 5
-
 
 @dataclass
 class _LoopResult:
@@ -33,12 +31,14 @@ class HandleMessage:
         memory: MemoryManager,
         providers: list[ToolProvider],
         system_prompt: str = "",
+        max_tool_rounds: int = 1,
     ) -> None:
         self._repo = repo
         self._llm = llm
         self._memory = memory
         self._execute_tool = ExecuteTool(providers)
         self._system_prompt = system_prompt
+        self._max_tool_rounds = max_tool_rounds
         self._channel: Channel | None = None
         self._tool_schemas: list[dict] | None = None
         self._providers = providers
@@ -88,7 +88,7 @@ class HandleMessage:
         tools: list[dict],
         rounds: int = 0,
     ) -> _LoopResult:
-        if rounds >= MAX_TOOL_ROUNDS:
+        if rounds >= self._max_tool_rounds:
             return _LoopResult(content="Too many tool calls in a row. Stopping.")
 
         t0 = time.perf_counter()

@@ -24,6 +24,7 @@ class LLMConfig(BaseModel):
     api_key: str = ""
     model: str = "gpt-4o-mini"
     system_prompt: str = "You are a helpful assistant."
+    max_tool_rounds: int = 1
 
 
 class StorageConfig(BaseModel):

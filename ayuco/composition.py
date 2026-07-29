@@ -65,6 +65,7 @@ async def build(settings: Settings, cli_mode: bool = False):  # type: ignore[no-
         memory=memory,
         providers=providers,
         system_prompt=settings.llm.system_prompt,
+        max_tool_rounds=settings.llm.max_tool_rounds,
     )
 
     # --- adapter ---
