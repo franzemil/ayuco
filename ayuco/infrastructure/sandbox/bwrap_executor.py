@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import shutil
+from pathlib import Path
 
 import structlog
 
@@ -17,13 +18,13 @@ class BwrapExecutor:
         timeout: float = 30.0,
         allowed_commands: list[str] | None = None,
         shared_paths: list[str] | None = None,
-        work_dir: str = "/tmp",
+        work_dir: str = "",
     ) -> None:
         self._bwrap = bwrap_path
         self._timeout = timeout
         self._allowed = set(allowed_commands) if allowed_commands else None
         self._shared_paths = shared_paths or []
-        self._work_dir = work_dir
+        self._work_dir = work_dir or str(Path.cwd())
 
     async def execute(self, command: str, arguments: dict) -> ToolResult:
         cmd_str = arguments.get("command", command)
@@ -36,7 +37,7 @@ class BwrapExecutor:
                 is_error=True,
             )
 
-        if shutil.which(self._bwrap):
+        if self._bwrap and shutil.which(self._bwrap):
             return await self._run_bwrap(cmd_parts)
         return await self._run_subprocess(cmd_parts)
 
@@ -66,7 +67,8 @@ class BwrapExecutor:
         return await self._run_cmd(bwrap_cmd)
 
     async def _run_subprocess(self, cmd_parts: list[str]) -> ToolResult:
-        log.warning("bwrap_not_found_fallback")
+        if self._bwrap:
+            log.warning("bwrap_not_found_fallback")
         return await self._run_cmd(cmd_parts)
 
     async def _run_cmd(self, cmd: list[str]) -> ToolResult:
