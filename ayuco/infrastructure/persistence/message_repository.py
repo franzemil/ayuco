@@ -141,7 +141,9 @@ class SQLiteMessageRepository:
                 content=tr["content"],
                 is_error=tr["is_error"],
             )
-        usage = json.loads(row["usage"]) if row["usage"] else {}
+        keys = row.keys()
+        usage_raw = row["usage"]
+        usage = json.loads(usage_raw) if usage_raw else {}
         return Message(
             id=uuid.UUID(row["id"]),
             chat_id=row["chat_id"],
@@ -149,8 +151,8 @@ class SQLiteMessageRepository:
             content=row["content"],
             tool_calls=tool_calls,
             tool_result=tool_result,
-            reasoning_content=row.get("reasoning_content"),
-            generation_time=row.get("generation_time"),
+            reasoning_content=row["reasoning_content"] if "reasoning_content" in keys else None,
+            generation_time=row["generation_time"] if "generation_time" in keys else None,
             usage=usage,
             timestamp=datetime.fromisoformat(row["timestamp"]),
         )
