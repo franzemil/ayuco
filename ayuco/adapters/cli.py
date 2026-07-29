@@ -4,7 +4,19 @@ import asyncio
 
 import structlog
 
+from ayuco.domain.entities.message import Message
+
 log = structlog.get_logger()
+
+
+def _format_metadata(message: Message) -> str:
+    parts = []
+    if message.generation_time is not None:
+        parts.append(f"\u26a1{message.generation_time:.1f}s")
+    if message.usage:
+        total = message.usage.get("total_tokens", 0)
+        parts.append(f"\ud83d\udd24{total}tok")
+    return f"  [{' | '.join(parts)}]" if parts else ""
 
 
 class CLIBot:
@@ -28,7 +40,8 @@ class CLIBot:
             if not text.strip():
                 continue
             response = await self._handler("cli", text)
-            print(f"Ayuco: {response}")
+            await self.send("cli", response)
 
-    async def send(self, chat_id: str, content: str) -> None:
-        print(f"Ayuco: {content}")
+    async def send(self, chat_id: str, message: Message) -> None:
+        text = message.content + _format_metadata(message)
+        print(f"Ayuco: {text}")

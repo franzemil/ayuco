@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import uuid
+from contextlib import suppress
 from datetime import datetime
 
 import aiosqlite
@@ -19,6 +20,9 @@ CREATE TABLE IF NOT EXISTS messages (
     content TEXT NOT NULL DEFAULT '',
     tool_calls TEXT NOT NULL DEFAULT '[]',
     tool_result TEXT,
+    reasoning_content TEXT,
+    generation_time REAL,
+    usage TEXT NOT NULL DEFAULT '{}',
     timestamp TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_messages_chat_id ON messages(chat_id);
@@ -39,6 +43,14 @@ class SQLiteMessageRepository:
         self._db = await aiosqlite.connect(self._db_path)
         self._db.row_factory = aiosqlite.Row
         await self._db.executescript(SCHEMA)
+        migrations = [
+            "ALTER TABLE messages ADD COLUMN reasoning_content TEXT",
+            "ALTER TABLE messages ADD COLUMN generation_time REAL",
+            "ALTER TABLE messages ADD COLUMN usage TEXT NOT NULL DEFAULT '{}'",
+        ]
+        for stmt in migrations:
+            with suppress(aiosqlite.OperationalError):
+                await self._db.execute(stmt)
         await self._db.execute("PRAGMA journal_mode=WAL")
         await self._db.commit()
         log.info("sqlite_connected", path=self._db_path)
@@ -61,10 +73,12 @@ class SQLiteMessageRepository:
                     "is_error": message.tool_result.is_error,
                 }
             )
+        usage_json = json.dumps(message.usage) if message.usage else "{}"
         await self._db.execute(
             "INSERT INTO messages "
-            "(id, chat_id, role, content, tool_calls, tool_result, timestamp) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "(id, chat_id, role, content, tool_calls, tool_result, "
+            "reasoning_content, generation_time, usage, timestamp) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 str(message.id),
                 message.chat_id,
@@ -72,6 +86,9 @@ class SQLiteMessageRepository:
                 message.content,
                 tool_calls_json,
                 tool_result_json,
+                message.reasoning_content,
+                message.generation_time,
+                usage_json,
                 message.timestamp.isoformat(),
             ),
         )
@@ -124,6 +141,7 @@ class SQLiteMessageRepository:
                 content=tr["content"],
                 is_error=tr["is_error"],
             )
+        usage = json.loads(row["usage"]) if row["usage"] else {}
         return Message(
             id=uuid.UUID(row["id"]),
             chat_id=row["chat_id"],
@@ -131,5 +149,8 @@ class SQLiteMessageRepository:
             content=row["content"],
             tool_calls=tool_calls,
             tool_result=tool_result,
+            reasoning_content=row.get("reasoning_content"),
+            generation_time=row.get("generation_time"),
+            usage=usage,
             timestamp=datetime.fromisoformat(row["timestamp"]),
         )

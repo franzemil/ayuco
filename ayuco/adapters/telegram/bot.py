@@ -13,9 +13,21 @@ from telegram.ext import (
     filters,
 )
 
+from ayuco.domain.entities.message import Message, Role
+
 log = structlog.get_logger()
 
-MessageHandlerFunc = Callable[[str, str], Awaitable[str]]
+MessageHandlerFunc = Callable[[str, str], Awaitable[Message]]
+
+
+def _format_metadata(message: Message) -> str:
+    parts = []
+    if message.generation_time is not None:
+        parts.append(f"\u26a1{message.generation_time:.1f}s")
+    if message.usage:
+        total = message.usage.get("total_tokens", 0)
+        parts.append(f"\ud83d\udd24{total}tok")
+    return f"  `{'\u00b7'.join(parts)}`" if parts else ""
 
 
 class TelegramChannel:
@@ -48,9 +60,10 @@ class TelegramChannel:
             log.info("telegram_shutting_down")
             await self._app.stop()
 
-    async def send(self, chat_id: str, content: str) -> None:
-        for i in range(0, len(content), 4096):
-            await self._app.bot.send_message(chat_id=int(chat_id), text=content[i : i + 4096])
+    async def send(self, chat_id: str, message: Message) -> None:
+        text = message.content + _format_metadata(message)
+        for i in range(0, len(text), 4096):
+            await self._app.bot.send_message(chat_id=int(chat_id), text=text[i : i + 4096])
 
     async def _on_text(self, update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         if not update.message or not self._handler:
@@ -62,7 +75,12 @@ class TelegramChannel:
             await self.send(chat_id, response)
         except Exception:
             log.exception("telegram_message_error", chat_id=chat_id)
-            await self.send(chat_id, "An error occurred while processing your message.")
+            error_msg = Message(
+                chat_id=chat_id,
+                role=Role.ASSISTANT,
+                content="An error occurred while processing your message.",
+            )
+            await self.send(chat_id, error_msg)
 
     async def _cmd_start(self, update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         if update.message:

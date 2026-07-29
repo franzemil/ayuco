@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import time
+from dataclasses import dataclass, field
+
 import structlog
 
 from ayuco.domain.entities.message import Message, Role, ToolResult
@@ -13,6 +16,13 @@ from ayuco.domain.use_cases.execute_tool import ExecuteTool
 log = structlog.get_logger()
 
 MAX_TOOL_ROUNDS = 5
+
+
+@dataclass
+class _LoopResult:
+    content: str
+    usage: dict = field(default_factory=dict)
+    total_llm_time: float = 0.0
 
 
 class HandleMessage:
@@ -45,7 +55,7 @@ class HandleMessage:
         self._tool_schemas = schemas
         return schemas
 
-    async def __call__(self, chat_id: str, content: str) -> str:
+    async def __call__(self, chat_id: str, content: str) -> Message:
         inbound = Message(chat_id=chat_id, role=Role.USER, content=content)
         await self._repo.add(inbound)
 
@@ -60,29 +70,37 @@ class HandleMessage:
             )
             context = [system, *context]
 
-        response = await self._loop(context, tools)
+        result = await self._loop(context, tools)
 
         outbound = Message(
             chat_id=chat_id,
             role=Role.ASSISTANT,
-            content=response,
+            content=result.content,
+            generation_time=result.total_llm_time,
+            usage=result.usage,
         )
         await self._repo.add(outbound)
-        return response
+        return outbound
 
     async def _loop(
         self,
         context: list[Message],
         tools: list[dict],
         rounds: int = 0,
-    ) -> str:
+    ) -> _LoopResult:
         if rounds >= MAX_TOOL_ROUNDS:
-            return "Too many tool calls in a row. Stopping."
+            return _LoopResult(content="Too many tool calls in a row. Stopping.")
 
+        t0 = time.perf_counter()
         llm_response = await self._llm.chat(context, tools or None)
+        elapsed = time.perf_counter() - t0
 
         if not llm_response.tool_calls:
-            return llm_response.content
+            return _LoopResult(
+                content=llm_response.content,
+                usage=llm_response.usage,
+                total_llm_time=elapsed,
+            )
 
         tool_messages = list(context)
         for tc in llm_response.tool_calls:
@@ -116,6 +134,8 @@ class HandleMessage:
                     name=tc.name,
                     error=result.content,
                 )
-                return result.content
+                return _LoopResult(content=result.content)
 
-        return await self._loop(tool_messages, tools, rounds + 1)
+        nested = await self._loop(tool_messages, tools, rounds + 1)
+        nested.total_llm_time += elapsed
+        return nested
