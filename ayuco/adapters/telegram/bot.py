@@ -26,7 +26,7 @@ def _format_metadata(message: Message) -> str:
         parts.append(f"\u26a1{message.generation_time:.1f}s")
     if message.usage:
         total = message.usage.get("total_tokens", 0)
-        parts.append(f"\ud83d\udd24{total}tok")
+        parts.append(f"\U0001F524{total}tok")
     return f"  `{'\u00b7'.join(parts)}`" if parts else ""
 
 
