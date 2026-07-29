@@ -51,7 +51,10 @@ DUCK_SEARCH_URL = "https://lite.duckduckgo.com/lite/"
 
 DUCK_SEARCH_SCHEMA: dict = {
     "name": "web_search",
-    "description": "Search the web using DuckDuckGo. Returns results with titles and URLs.",
+    "description": (
+        "Search the web and return results with page content included. "
+        "No need to call another tool after this."
+    ),
     "parameters": {
         "type": "object",
         "properties": {
@@ -61,25 +64,10 @@ DUCK_SEARCH_SCHEMA: dict = {
             },
             "max_results": {
                 "type": "integer",
-                "description": "Maximum number of results (default 5)",
+                "description": "Maximum number of results to fetch content for (default 2)",
             },
         },
         "required": ["query"],
-    },
-}
-
-FETCH_SCHEMA: dict = {
-    "name": "web_fetch",
-    "description": "Fetch the content of a web page and return its text.",
-    "parameters": {
-        "type": "object",
-        "properties": {
-            "url": {
-                "type": "string",
-                "description": "The URL to fetch",
-            },
-        },
-        "required": ["url"],
     },
 }
 
@@ -89,49 +77,44 @@ class WebToolProvider:
         self._client = httpx.AsyncClient(timeout=timeout, follow_redirects=True)
 
     async def list_tools(self) -> list[dict]:
-        return [DUCK_SEARCH_SCHEMA, FETCH_SCHEMA]
+        return [DUCK_SEARCH_SCHEMA]
 
     async def execute(self, name: str, arguments: dict) -> ToolResult:
         if name == "web_search":
             return await self._search(arguments)
-        if name == "web_fetch":
-            return await self._fetch(arguments)
         return ToolResult(call_id="", content=f"Unknown tool: {name}", is_error=True)
 
     async def _search(self, args: dict) -> ToolResult:
         query = args.get("query", "")
-        max_results = args.get("max_results", 5)
+        max_results = args.get("max_results", 2)
         if not query:
             return ToolResult(call_id="", content="No query provided", is_error=True)
         try:
             resp = await self._client.post(DUCK_SEARCH_URL, data={"q": query})
             resp.raise_for_status()
-            text = resp.text
-            results = _parse_duck_results(text, max_results)
+            results = _parse_duck_results(resp.text, max_results)
             if not results:
                 return ToolResult(call_id="", content="No results found.")
-            lines = [f"{i + 1}. [{title}]({url})" for i, (title, url) in enumerate(results)]
-            return ToolResult(call_id="", content="\n".join(lines))
+
+            blocks: list[str] = []
+            for i, (title, url) in enumerate(results):
+                content = await self._fetch_page(url)
+                blocks.append(f"{i + 1}. {title}\n   URL: {url}\n   {content[:2000]}")
+
+            return ToolResult(call_id="", content="\n\n".join(blocks))
         except Exception as e:
             log.error("web_search_failed", query=query, error=str(e))
             return ToolResult(call_id="", content=f"Search failed: {e}", is_error=True)
 
-    async def _fetch(self, args: dict) -> ToolResult:
-        url = args.get("url", "")
-        if not url:
-            return ToolResult(call_id="", content="No URL provided", is_error=True)
+    async def _fetch_page(self, url: str) -> str:
         try:
             resp = await self._client.get(url)
             resp.raise_for_status()
             content_type = resp.headers.get("content-type", "")
             text = _extract_text(resp.text) if "text/html" in content_type else resp.text[:8000]
-            return ToolResult(
-                call_id="",
-                content=f"Content from {url}:\n\n{text.strip() or '(empty page)'}",
-            )
+            return text.strip() or "(empty page)"
         except Exception as e:
-            log.error("web_fetch_failed", url=url, error=str(e))
-            return ToolResult(call_id="", content=f"Failed to fetch {url}: {e}", is_error=True)
+            return f"(failed to fetch: {e})"
 
     async def close(self) -> None:
         await self._client.aclose()
