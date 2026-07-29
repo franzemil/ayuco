@@ -28,20 +28,20 @@ class BwrapExecutor:
 
     async def execute(self, command: str, arguments: dict) -> ToolResult:
         cmd_str = arguments.get("command", command)
-        cmd_parts = cmd_str.split()
+        cmd_first = cmd_str.split(maxsplit=1)[0] if cmd_str else ""
 
-        if self._allowed and cmd_parts and cmd_parts[0] not in self._allowed:
+        if self._allowed and cmd_first and cmd_first not in self._allowed:
             return ToolResult(
                 call_id="",
-                content=f"Command not allowed: {cmd_parts[0]}",
+                content=f"Command not allowed: {cmd_first}",
                 is_error=True,
             )
 
         if self._bwrap and shutil.which(self._bwrap):
-            return await self._run_bwrap(cmd_parts)
-        return await self._run_subprocess(cmd_parts)
+            return await self._run_bwrap(cmd_str)
+        return await self._run_subprocess(cmd_str)
 
-    async def _run_bwrap(self, cmd_parts: list[str]) -> ToolResult:
+    async def _run_bwrap(self, cmd_str: str) -> ToolResult:
         shared = set(self._shared_paths)
         tmp_mount = ["--bind", "/tmp", "/tmp"] if "/tmp" in shared else ["--tmpfs", "/tmp"]
         extra_binds: list[str] = []
@@ -62,14 +62,16 @@ class BwrapExecutor:
             "--unshare-net",
             "--die-with-parent",
             "--",
-            *cmd_parts,
+            "sh",
+            "-c",
+            cmd_str,
         ]
         return await self._run_cmd(bwrap_cmd)
 
-    async def _run_subprocess(self, cmd_parts: list[str]) -> ToolResult:
+    async def _run_subprocess(self, cmd_str: str) -> ToolResult:
         if self._bwrap:
             log.warning("bwrap_not_found_fallback")
-        return await self._run_cmd(cmd_parts)
+        return await self._run_cmd(["sh", "-c", cmd_str])
 
     async def _run_cmd(self, cmd: list[str]) -> ToolResult:
         try:
