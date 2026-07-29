@@ -43,6 +43,7 @@ class SandboxConfig(BaseModel):
     timeout: float = 30
     allowed_commands: list[str] = []
     shared_paths: list[str] = ["/tmp"]
+    work_dir: str = "/tmp"
 
 
 class MCPServerConfig(BaseModel):

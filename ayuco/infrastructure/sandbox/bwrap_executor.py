@@ -17,11 +17,13 @@ class BwrapExecutor:
         timeout: float = 30.0,
         allowed_commands: list[str] | None = None,
         shared_paths: list[str] | None = None,
+        work_dir: str = "/tmp",
     ) -> None:
         self._bwrap = bwrap_path
         self._timeout = timeout
         self._allowed = set(allowed_commands) if allowed_commands else None
         self._shared_paths = shared_paths or []
+        self._work_dir = work_dir
 
     async def execute(self, command: str, arguments: dict) -> ToolResult:
         cmd_str = arguments.get("command", command)
@@ -71,6 +73,7 @@ class BwrapExecutor:
         try:
             proc = await asyncio.create_subprocess_exec(
                 *cmd,
+                cwd=self._work_dir,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
