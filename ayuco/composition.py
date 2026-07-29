@@ -13,6 +13,7 @@ from ayuco.infrastructure.memory.summarizer import SummarizedMemory
 from ayuco.infrastructure.persistence.message_repository import SQLiteMessageRepository
 from ayuco.infrastructure.sandbox.bwrap_executor import BwrapExecutor
 from ayuco.infrastructure.sandbox.tool_provider import SandboxToolProvider
+from ayuco.infrastructure.web.tool_provider import WebToolProvider
 
 log = structlog.get_logger()
 
@@ -50,6 +51,7 @@ async def build(settings: Settings, cli_mode: bool = False):  # type: ignore[no-
         work_dir=settings.sandbox.work_dir if settings.sandbox.enabled else "",
     )
     providers.append(SandboxToolProvider(executor, sandboxed=settings.sandbox.enabled))
+    providers.append(WebToolProvider())
 
     for server_cfg in settings.mcp.servers:
         mcp = MCPToolProvider(server_cfg.model_dump())
